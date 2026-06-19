@@ -22,3 +22,12 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Base de datos local (SQLite)
+*.db
+*.sqlite
+*.sqlite3
+
+# Variables de entorno secretas (por si usas archivos .env en el backend)
+.env
+.env.local

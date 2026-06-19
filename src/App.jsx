@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import FullCalendar from '@fullcalendar/react';
 import dayGridPlugin from '@fullcalendar/daygrid';
 import interactionPlugin from '@fullcalendar/interaction';
+import Login from './Login'; // 🔑 Importante: Traemos tu nuevo componente de Login
 
 const estilosInyectados = `
   .fc-toolbar-title {
@@ -25,35 +26,51 @@ if (typeof document !== 'undefined') {
 }
 
 function App() {
+  // 🔑 ESTADO MAESTRO: Revisa si ya hay una sesión guardada al abrir la página
+  const [token, setToken] = useState(localStorage.getItem('token_calendario') || '');
+  const [usuarioActivo, setUsuarioActivo] = useState(localStorage.getItem('usuario_calendario') || '');
+
+  // 🛠️ CORRECCIÓN: Ahora declaramos la variable 'eventos' correctamente
   const [eventos, setEventos] = useState([]);
-  
-  // 🚨 ESTADOS NUEVOS para controlar el formulario flotante
   const [modalAbierta, setModalAbierta] = useState(false);
   const [fechaSeleccionada, setFechaSeleccionada] = useState('');
   const [nuevoTitulo, setNuevoTitulo] = useState('');
-  const [colorSeleccionado, setColorSeleccionado] = useState('#27ae60'); // Verde por defecto
+  const [colorSeleccionado, setColorSeleccionado] = useState('#27ae60'); 
 
   const cargarEventos = () => {
-    fetch('http://127.0.0.1:8000/api/eventos')
-      .then(response => response.json())
+    // 🔑 UNIFICADO: Conectamos directamente a localhost
+    fetch('http://localhost:8000/api/eventos')
+      .then(response => {
+        if (!response.ok) throw new Error("Error al leer eventos");
+        return response.json();
+      })
       .then(data => setEventos(data))
       .catch(error => console.error("Error conectando con Python:", error));
   };
 
+  // Solo carga los eventos si el usuario ya está autenticado
   useEffect(() => {
-    cargarEventos();
-  }, []);
+    if (token) {
+      cargarEventos();
+    }
+  }, [token]);
 
-  // Al hacer clic en el día, solo guardamos la fecha y abrimos nuestra tarjeta
-  const handleDateClick = (arg) => {
-    setFechaSeleccionada(arg.dateStr);
-    setNuevoTitulo(''); // Limpiamos el texto anterior
-    setModalAbierta(true); // ¡Abrimos la tarjeta!
+  // 🔑 FUNCIÓN PARA CERRAR SESIÓN: Borra el almacén y bloquea la pantalla
+  const manejarCerrarSesion = () => {
+    localStorage.removeItem('token_calendario');
+    localStorage.removeItem('usuario_calendario');
+    setToken('');
+    setUsuarioActivo('');
   };
 
-  // Función que se ejecuta al darle "Guardar" en la tarjeta
+  const handleDateClick = (arg) => {
+    setFechaSeleccionada(arg.dateStr);
+    setNuevoTitulo(''); 
+    setModalAbierta(true); 
+  };
+
   const manejarGuardar = (e) => {
-    e.preventDefault(); // Evita que la página se recargue
+    e.preventDefault(); 
     if (!nuevoTitulo.trim()) return alert("Por favor escribe un título");
 
     const nuevoEvento = {
@@ -62,62 +79,78 @@ function App() {
       color: colorSeleccionado
     };
 
-    fetch('http://127.0.0.1:8000/api/eventos', {
+    // 🔑 CORRECCIÓN CORS: Cambiado de 127.0.0.1 a localhost
+    fetch('http://localhost:8000/api/eventos', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(nuevoEvento),
     })
-    .then(response => response.json())
+    .then(response => {
+      if (!response.ok) throw new Error("Error al guardar evento");
+      return response.json();
+    })
     .then(() => {
       cargarEventos();
-      setModalAbierta(false); // Cerramos la tarjeta
+      setModalAbierta(false); 
     })
     .catch(error => console.error("Error al guardar:", error));
   };
 
+  // 🚨 FILTRO DE SEGURIDAD EN REACT: Si no hay token, muestra la pantalla de Login
+  if (!token) {
+    return <Login setToken={(t) => {
+      setToken(t);
+      setUsuarioActivo(localStorage.getItem('usuario_calendario') || '');
+    }} />;
+  }
+
   return (
-    <div style={{ padding: '40px', fontFamily: 'bold, sans-serif', position: 'relative' }}>
-      <h1 style={{ textAlign: 'center', marginBottom: '20px' }}>Mi Calendario</h1>
-      <h3 style={{ textAlign: 'center', color: '#7f8c8d', marginBottom: '20px' }}>React ⚛️ + FastAPI + Python 🐍</h3>
+    <div style={{ padding: '40px', fontFamily: 'sans-serif', position: 'relative' }}>
+      
+      {/* 👤 BARRA DE USUARIO SUPERIOR */}
+      <div style={estilos.barraUsuario}>
+        <span>Hola, <strong>{usuarioActivo}</strong> 👋</span>
+        <button onClick={manejarCerrarSesion} style={estilos.botonSalir}>
+          Cerrar Sesión
+        </button>
+      </div>
+
+      <h1 style={{ textAlign: 'center', marginBottom: '5px' }}>Mi Calendario</h1>
+      <h3 style={{ textAlign: 'center', color: '#7f8c8d', marginBottom: '30px', fontWeight: 'normal' }}>
+        React ⚛️ + FastAPI + Python 🐍
+      </h3>
       
       <div style={{ backgroundColor: 'white', padding: '20px', borderRadius: '8px', boxShadow: '0 4px 6px rgba(0,0,0,0.1)' }}>
         <FullCalendar
-  plugins={[dayGridPlugin, interactionPlugin]}
-  initialView="dayGridMonth"
-  locale="es"
-  buttonText={{ today: 'Hoy' }}
-headerToolbar={{
-    left: 'title',               // Mueve el título ("junio de 2026") a la izquierda
-    center: '',                  // Deja el centro libre
-    right: 'prev,today,next'     // Pone las flechas y el botón Hoy a la derecha
-  }}
-
-  events={eventos}
-  dateClick={handleDateClick}
-  
-  // 🚨 NUEVA PROPIEDAD: Escucha los clics sobre los eventos existentes
-  eventClick={(info) => {
-    // info.event.title es el nombre del evento
-    // info.event.id es el número único que viene de SQLite
-    const confirmar = window.confirm(`¿Estás seguro de que quieres eliminar el evento "${info.event.title}"?`);
-    
-    if (confirmar) {
-      // Viajamos a Python pasándole el ID en la URL
-      fetch(`http://127.0.0.1:8000/api/eventos/${info.event.id}`, {
-        method: 'DELETE',
-      })
-      .then(response => response.json())
-      .then(() => {
-        // Volvemos a leer la base de datos para que desaparezca de la pantalla
-        cargarEventos(); 
-      })
-      .catch(error => console.error("Error al eliminar:", error));
-    }
-  }}
-/>
+          plugins={[dayGridPlugin, interactionPlugin]}
+          initialView="dayGridMonth"
+          locale="es"
+          buttonText={{ today: 'Hoy' }}
+          headerToolbar={{
+            left: 'title', 
+            center: '', 
+            right: 'prev,today,next' 
+          }}
+          events={eventos}
+          dateClick={handleDateClick}
+          eventClick={(info) => {
+            const confirmar = window.confirm(`¿Estás seguro de que quieres eliminar el evento "${info.event.title}"?`);
+            if (confirmar) {
+              // 🔑 CORRECCIÓN CORS: Cambiado de 127.0.0.1 a localhost
+              fetch(`http://localhost:8000/api/eventos/${info.event.id}`, {
+                method: 'DELETE',
+              })
+              .then(response => response.json())
+              .then(() => {
+                cargarEventos(); 
+              })
+              .catch(error => console.error("Error al eliminar:", error));
+            }
+          }}
+        />
       </div>
 
-      {/* 🚨 TARJETA FLOTANTE (MODAL CUSTOM) */}
+      {/* TARJETA FLOTANTE (MODAL CUSTOM) */}
       {modalAbierta && (
         <div style={estilos.overlay}>
           <div style={estilos.tarjeta}>
@@ -132,7 +165,7 @@ headerToolbar={{
                   placeholder="Ej. Cita Médica" 
                   value={nuevoTitulo}
                   onChange={(e) => setNuevoTitulo(e.target.value)}
-                  style={estilos.input}
+                  style={estilos.input} 
                 />
               </div>
 
@@ -167,8 +200,26 @@ headerToolbar={{
   );
 }
 
-// 🎨 OBJETO DE ESTILOS CSS PARA LA TARJETA
 const estilos = {
+  barraUsuario: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: '#ecf0f1',
+    padding: '10px 20px',
+    borderRadius: '8px',
+    marginBottom: '20px',
+    color: '#2c3e50'
+  },
+  botonSalir: {
+    padding: '6px 12px',
+    backgroundColor: '#e74c3c',
+    color: 'white',
+    border: 'none',
+    borderRadius: '4px',
+    cursor: 'pointer',
+    fontWeight: 'bold'
+  },
   overlay: {
     position: 'fixed',
     top: 0, left: 0, right: 0, bottom: 0,
@@ -181,7 +232,7 @@ const estilos = {
     padding: '30px',
     borderRadius: '12px',
     boxShadow: '0 10px 25px rgba(58, 175, 52, 0.2)',
-    width: '800px',
+    width: '400px', 
     boxSizing: 'border-box'
   },
   campo: {

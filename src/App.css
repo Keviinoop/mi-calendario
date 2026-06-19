@@ -238,3 +238,122 @@ h2.fc-toolbar-title {
   color: #2c3e50 !important;
   font-weight: bold !important;
 }
+
+
+/* Estilos para la pantalla de Login */
+.login-contenedor {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 100vh;
+  background-color: #0f172a; /* Fondo oscuro premium */
+  font-family: sans-serif;
+}
+
+.login-tarjeta {
+  background-color: #1e293b; /* Tarjeta un poco más clara */
+  padding: 40px;
+  border-radius: 12px;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3);
+  width: 100%;
+  max-width: 400px;
+  text-align: center;
+  border: 1px solid #334155;
+}
+
+.login-tarjeta h2 {
+  color: #f8fafc;
+  margin-bottom: 8px;
+  font-size: 24px;
+}
+
+.login-subtitulo {
+  color: #94a3b8;
+  font-size: 14px;
+  margin-bottom: 24px;
+}
+
+.login-formulario {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  text-align: left;
+}
+
+.grupo-input {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.grupo-input label {
+  color: #cbd5e1;
+  font-size: 14px;
+}
+
+.grupo-input input {
+  padding: 10px 14px;
+  border-radius: 6px;
+  border: 1px solid #475569;
+  background-color: #0f172a;
+  color: #f8fafc;
+  font-size: 16px;
+  transition: border-color 0.2s;
+}
+
+.grupo-input input:focus {
+  outline: none;
+  border-color: #38bdf8; /* Borde azul brillante al seleccionar */
+}
+
+.boton-login {
+  background-color: #38bdf8;
+  color: #0f172a;
+  padding: 12px;
+  border: none;
+  border-radius: 6px;
+  font-size: 16px;
+  font-weight: bold;
+  cursor: pointer;
+  transition: background-color 0.2s;
+  margin-top: 10px;
+}
+
+.boton-login:hover {
+  background-color: #7dd3fc;
+}
+
+.login-cambio {
+  margin-top: 20px;
+}
+
+.login-cambio button {
+  background: none;
+  border: none;
+  color: #38bdf8;
+  cursor: pointer;
+  font-size: 13px;
+  text-decoration: underline;
+}
+
+.login-cambio button:hover {
+  color: #7dd3fc;
+}
+
+.mensaje-error {
+  background-color: #451a1a;
+  color: #f87171;
+  padding: 10px;
+  border-radius: 6px;
+  font-size: 14px;
+  border: 1px solid #7f1d1d;
+}
+
+.mensaje-exito {
+  background-color: #064e3b;
+  color: #34d399;
+  padding: 10px;
+  border-radius: 6px;
+  font-size: 14px;
+  border: 1px solid #065f46;
+}
