@@ -31,3 +31,10 @@ dist-ssr
 # Variables de entorno secretas (por si usas archivos .env en el backend)
 .env
 .env.local
+
+
+mi-backend/calendario.db
+mi-backend/__pycache__/
+__pycache__/
+.env
+node_modules/

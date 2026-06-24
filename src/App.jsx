@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import FullCalendar from '@fullcalendar/react';
 import dayGridPlugin from '@fullcalendar/daygrid';
 import interactionPlugin from '@fullcalendar/interaction';
-import Login from './Login'; // 🔑 Importante: Traemos tu nuevo componente de Login
+import Login from './Login'; 
 
 const estilosInyectados = `
   .fc-toolbar-title {
@@ -17,6 +17,9 @@ const estilosInyectados = `
   .fc-daygrid-day-number {
     color: #2c3e50 !important;
   }
+  .fc-event {
+    cursor: pointer !important;
+  }
 `;
 
 if (typeof document !== 'undefined') {
@@ -26,20 +29,24 @@ if (typeof document !== 'undefined') {
 }
 
 function App() {
-  // 🔑 ESTADO MAESTRO: Revisa si ya hay una sesión guardada al abrir la página
   const [token, setToken] = useState(localStorage.getItem('token_calendario') || '');
   const [usuarioActivo, setUsuarioActivo] = useState(localStorage.getItem('usuario_calendario') || '');
 
-  // 🛠️ CORRECCIÓN: Ahora declaramos la variable 'eventos' correctamente
   const [eventos, setEventos] = useState([]);
   const [modalAbierta, setModalAbierta] = useState(false);
   const [fechaSeleccionada, setFechaSeleccionada] = useState('');
   const [nuevoTitulo, setNuevoTitulo] = useState('');
   const [colorSeleccionado, setColorSeleccionado] = useState('#27ae60'); 
+  // 🔗 NUEVO ESTADO: Guarda el link que escribes en el formulario
+  const [nuevoLink, setNuevoLink] = useState('');
 
   const cargarEventos = () => {
-    // 🔑 UNIFICADO: Conectamos directamente a localhost
-    fetch('http://localhost:8000/api/eventos')
+    fetch('http://localhost:8000/api/eventos', {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${token}`
+      }
+    })
       .then(response => {
         if (!response.ok) throw new Error("Error al leer eventos");
         return response.json();
@@ -48,14 +55,12 @@ function App() {
       .catch(error => console.error("Error conectando con Python:", error));
   };
 
-  // Solo carga los eventos si el usuario ya está autenticado
   useEffect(() => {
     if (token) {
       cargarEventos();
     }
   }, [token]);
 
-  // 🔑 FUNCIÓN PARA CERRAR SESIÓN: Borra el almacén y bloquea la pantalla
   const manejarCerrarSesion = () => {
     localStorage.removeItem('token_calendario');
     localStorage.removeItem('usuario_calendario');
@@ -66,6 +71,7 @@ function App() {
   const handleDateClick = (arg) => {
     setFechaSeleccionada(arg.dateStr);
     setNuevoTitulo(''); 
+    setNuevoLink(''); // Limpiamos la casilla del link
     setModalAbierta(true); 
   };
 
@@ -76,13 +82,16 @@ function App() {
     const nuevoEvento = {
       title: nuevoTitulo,
       start: fechaSeleccionada,
-      color: colorSeleccionado
+      color: colorSeleccionado,
+      link: nuevoLink // 🔗 Enviamos el link hacia el backend
     };
 
-    // 🔑 CORRECCIÓN CORS: Cambiado de 127.0.0.1 a localhost
     fetch('http://localhost:8000/api/eventos', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      },
       body: JSON.stringify(nuevoEvento),
     })
     .then(response => {
@@ -96,7 +105,7 @@ function App() {
     .catch(error => console.error("Error al guardar:", error));
   };
 
-  // 🚨 FILTRO DE SEGURIDAD EN REACT: Si no hay token, muestra la pantalla de Login
+  // 🚨 FILTRO DE SEGURIDAD EN REACT
   if (!token) {
     return <Login setToken={(t) => {
       setToken(t);
@@ -115,9 +124,9 @@ function App() {
         </button>
       </div>
 
-      <h1 style={{ textAlign: 'center', marginBottom: '5px' }}>Mi Calendario</h1>
+      <h1 style={{ textAlign: 'center', marginBottom: '5px' }}>Mi Calendario De Actividades 🎓</h1>
       <h3 style={{ textAlign: 'center', color: '#7f8c8d', marginBottom: '30px', fontWeight: 'normal' }}>
-        React ⚛️ + FastAPI + Python 🐍
+        Tus apuntes y clases en un solo lugar
       </h3>
       
       <div style={{ backgroundColor: 'white', padding: '20px', borderRadius: '8px', boxShadow: '0 4px 6px rgba(0,0,0,0.1)' }}>
@@ -134,11 +143,27 @@ function App() {
           events={eventos}
           dateClick={handleDateClick}
           eventClick={(info) => {
-            const confirmar = window.confirm(`¿Estás seguro de que quieres eliminar el evento "${info.event.title}"?`);
-            if (confirmar) {
-              // 🔑 CORRECCIÓN CORS: Cambiado de 127.0.0.1 a localhost
+            // Extraemos el link que guardamos en las propiedades extendidas del evento de FullCalendar
+            const linkEvento = info.event.extendedProps.link;
+            
+            let mensaje = `Evento: ${info.event.title}\n`;
+            if (linkEvento) {
+              mensaje += `🔗 Enlace disponible: ${linkEvento}\n\n¿Quieres abrir el enlace en una pestaña nueva?\n(Si cancelas, podrás elegir eliminar el evento).`;
+              
+              if (window.confirm(mensaje)) {
+                window.open(linkEvento, '_blank');
+                return; // Abre el link y no hace nada más
+              }
+            }
+
+            // Si no tiene link o el usuario le dio "Cancelar" al link, pregunta si quiere borrarlo
+            const confirmarBorrar = window.confirm(`¿Quieres eliminar el evento "${info.event.title}"?`);
+            if (confirmarBorrar) {
               fetch(`http://localhost:8000/api/eventos/${info.event.id}`, {
                 method: 'DELETE',
+                headers: {
+                  'Authorization': `Bearer ${token}`
+                }
               })
               .then(response => response.json())
               .then(() => {
@@ -154,32 +179,44 @@ function App() {
       {modalAbierta && (
         <div style={estilos.overlay}>
           <div style={estilos.tarjeta}>
-            <h2 style={{ marginTop: 0, color: '#2c3e50' }}>Nuevo Evento</h2>
-            <p style={{ color: '#041618' }}>Fecha: {fechaSeleccionada}</p>
+            <h2 style={{ marginTop: 0, color: '#2c3e50' }}>Nuevo Apunte / Clase</h2>
+            <p style={{ color: '#555' }}>Fecha: {fechaSeleccionada}</p>
             
             <form onSubmit={manejarGuardar}>
               <div style={estilos.campo}>
-                <label style={estilos.label}>Título del evento:</label>
+                <label style={estilos.label}>Título del evento / Materia:</label>
                 <input 
                   type="text" 
-                  placeholder="Ej. Cita Médica" 
+                  placeholder="Ej. Parcial de Cálculo / Entrega de Proyecto" 
                   value={nuevoTitulo}
                   onChange={(e) => setNuevoTitulo(e.target.value)}
                   style={estilos.input} 
                 />
               </div>
 
+              {/* 🔗 NUEVA CASILLA DE TEXTO PARA EL LINK */}
               <div style={estilos.campo}>
-                <label style={estilos.label}>Categoría / Color:</label>
+                <label style={estilos.label}>Enlace (Drive, Notion, Teams, Zoom):</label>
+                <input 
+                  type="url" 
+                  placeholder="https://ejemplo.com/mis-apuntes" 
+                  value={nuevoLink}
+                  onChange={(e) => setNuevoLink(e.target.value)}
+                  style={estilos.input} 
+                />
+              </div>
+
+              <div style={estilos.campo}>
+                <label style={estilos.label}>Categoría / Prioridad:</label>
                 <select 
                   value={colorSeleccionado} 
                   onChange={(e) => setColorSeleccionado(e.target.value)}
                   style={estilos.select}
                 >
-                  <option value="#e74c3c">🔴 Importante / Urgente</option>
-                  <option value="#2980b9">🔵 Trabajo / Estudio</option>
-                  <option value="#27ae60">🟢 Tiempo Libre / Festivo</option>
-                  <option value="#e84393">💗 Personal / Romántico</option>
+                  <option value="#e74c3c">🔴 Exámenes / Entregas Críticas</option>
+                  <option value="#2980b9">🔵 Clases / Conferencias</option>
+                  <option value="#27ae60">🟢 Tareas / Apuntes Extra</option>
+                  <option value="#e84393">💗 Estudio en Grupo / Tutorías</option>
                   <option value="#9b59b6">🟣 Otros</option>
                 </select>
               </div>
@@ -231,8 +268,8 @@ const estilos = {
     backgroundColor: 'white',
     padding: '30px',
     borderRadius: '12px',
-    boxShadow: '0 10px 25px rgba(58, 175, 52, 0.2)',
-    width: '400px', 
+    boxShadow: '0 10px 25px rgba(0,0,0,0.1)',
+    width: '420px', 
     boxSizing: 'border-box'
   },
   campo: {
@@ -240,19 +277,19 @@ const estilos = {
     display: 'flex', flexDirection: 'column'
   },
   label: {
-    fontWeight: 'bold', marginBottom: '5px', color: '#2c3e50', fontSize: '16px'
+    fontWeight: 'bold', marginBottom: '5px', color: '#2c3e50', fontSize: '14px'
   },
   input: {
-    padding: '10px', borderRadius: '6px', border: '1px solid #bdc3c7', fontSize: '16px'
+    padding: '10px', borderRadius: '6px', border: '1px solid #bdc3c7', fontSize: '15px'
   },
   select: {
-    padding: '10px', borderRadius: '6px', border: '1px solid #bdc3c7', fontSize: '16px', backgroundColor: 'white'
+    padding: '10px', borderRadius: '6px', border: '1px solid #bdc3c7', fontSize: '15px', backgroundColor: 'white'
   },
   botones: {
     display: 'flex', justifyContent: 'space-between', marginTop: '20px'
   },
   botonCancelar: {
-    padding: '10px 20px', backgroundColor: '#c68b48', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold'
+    padding: '10px 20px', backgroundColor: '#7f8c8d', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold'
   },
   botonGuardar: {
     padding: '10px 20px', backgroundColor: '#2c3e50', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold'

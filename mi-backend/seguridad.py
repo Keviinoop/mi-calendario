@@ -42,3 +42,17 @@ def crear_token_acceso(datos: dict) -> str:
     datos_copia.update({"exp": tiempo_expiracion})
     token_jwt = jwt.encode(datos_copia, SECRET_KEY, algorithm=ALGORITHM)
     return token_jwt
+
+
+# 4. FUNCIÓN NUEVA: Para decodificar y validar el Token JWT de los eventos
+def verificar_token_acceso(token: str) -> dict | None:
+    try:
+        # Decodificamos el token usando la misma clave secreta y algoritmo
+        datos_decodificados = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        return datos_decodificados  # Retorna el diccionario con {"sub": "usuario", "id": X, "exp": ...}
+    except jwt.ExpiredSignatureError:
+        # El token caducó (pasaron las 24 horas)
+        return None
+    except jwt.PyJWTError:
+        # El token es falso, está roto o fue alterado
+        return None
